@@ -1,0 +1,5 @@
+.env
+.github
+.eslintrc.json
+.DS_Store
+*.tgz
