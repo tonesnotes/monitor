@@ -30,9 +30,9 @@
   },
   "dependencies": {
     "@bsv/auth-express-middleware": "^1.0.13",
-    "@bsv/payment-express-middleware": "^1.0.3",
+    "@bsv/payment-express-middleware": "^1.0.4",
     "@bsv/sdk": "^1.4.9",
-    "@bsv/wallet-toolbox": "^1.2.21",
+    "@bsv/wallet-toolbox": "^1.2.22",
     "dotenv": "^16.3.1",
     "knex": "^3.1.0",
     "mysql2": "^3.12.0",
