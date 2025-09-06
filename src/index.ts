@@ -1,5 +1,4 @@
-import { MonitorDaemon, sdk, Services, wait } from '@bsv/wallet-toolbox'
-import { WalletServicesOptions } from '@bsv/wallet-toolbox/out/src/sdk';
+import { Chaintracks, createDefaultNoDbChaintracksOptions, MonitorDaemon, MonitorDaemonSetup, sdk, Services, wait } from '@bsv/wallet-toolbox'
 
 import dotenv from 'dotenv'
 dotenv.config();
@@ -39,12 +38,21 @@ WHATSONCHAIN ${servicesOptions.whatsOnChainApiKey!.slice(0,20)}
 BITAILS ${servicesOptions.bitailsApiKey!.slice(0,20)}
 `)
 
+const u = undefined
+const maxRetained = 32
+const chaintracksOptions = createDefaultNoDbChaintracksOptions(chain, WHATSONCHAIN_API_KEY, u, maxRetained)
+const chaintracks = new Chaintracks(chaintracksOptions)
+servicesOptions.chaintracks = chaintracks
+
 async function runMonitor() : Promise<void> {
+
+    await chaintracks.makeAvailable()
 
     for (;!stop;) {
 
         try {
-            const d = new MonitorDaemon({ chain, mySQLConnection, servicesOptions })
+            const args: MonitorDaemonSetup = { chain, mySQLConnection, servicesOptions, chaintracks }
+            const d = new MonitorDaemon(args)
 
             d.runDaemon()
 
