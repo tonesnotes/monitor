@@ -31,7 +31,7 @@
   "dependencies": {
     "@bsv/auth-express-middleware": "^1.2.3",
     "@bsv/payment-express-middleware": "^1.2.3",
-    "@bsv/sdk": "^1.8.9",
+    "@bsv/sdk": "^1.8.10",
     "@bsv/wallet-toolbox": "^1.6.37",
     "dotenv": "^16.3.1",
     "knex": "^3.1.0",
