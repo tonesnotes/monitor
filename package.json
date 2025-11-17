@@ -1,6 +1,6 @@
 {
   "name": "@cwi/monitor",
-  "version": "1.0.129",
+  "version": "1.0.130",
   "description": "Runs automation, security and validity checks on WalletStorage database.",
   "author": "Peer-to-peer Privacy Systems Research LLC",
   "license": "PROPRIETARY",
