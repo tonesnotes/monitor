@@ -25,6 +25,12 @@ const mySQLConnection = chain === 'main'
 let stop = false
 
 const servicesOptions = Services.createDefaultOptions(chain)
+
+// TEMPORARY DISABLE GORILLAPOOL ARC
+// TEMPORARY DISABLE GORILLAPOOL ARC
+// TEMPORARY DISABLE GORILLAPOOL ARC
+servicesOptions.arcGorillaPoolUrl = undefined
+
 if (TAAL_API_KEY) {
     servicesOptions.taalApiKey = TAAL_API_KEY
     servicesOptions.arcConfig.apiKey = TAAL_API_KEY
@@ -36,6 +42,7 @@ API Keys:
 TAAL ${servicesOptions.taalApiKey!.slice(0,20)}
 WHATSONCHAIN ${servicesOptions.whatsOnChainApiKey!.slice(0,20)}
 BITAILS ${servicesOptions.bitailsApiKey!.slice(0,20)}
+GORILLAPOOL ARC ${servicesOptions.arcGorillaPoolUrl}
 `)
 
 const u = undefined
