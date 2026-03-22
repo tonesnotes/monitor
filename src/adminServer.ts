@@ -2,6 +2,7 @@ import { Transaction } from '@bsv/sdk'
 import { Services, sdk } from '@bsv/wallet-toolbox'
 import { renderAdminPage } from './adminUi'
 import { RuntimeContext } from './bootstrap'
+import path from 'path'
 
 const express = require('express')
 const { createAuthMiddleware } = require('@bsv/auth-express-middleware')
@@ -40,6 +41,75 @@ function toHex(value?: number[] | Buffer): string | undefined {
   return Buffer.from(value).toString('hex')
 }
 
+type AdminStatsLike = {
+  requestedBy?: unknown
+  when?: unknown
+  usersDay?: unknown
+  usersWeek?: unknown
+  usersMonth?: unknown
+  usersTotal?: unknown
+  satoshisDefaultDay?: unknown
+  satoshisDefaultWeek?: unknown
+  satoshisDefaultMonth?: unknown
+  satoshisDefaultTotal?: unknown
+  satoshisOtherDay?: unknown
+  satoshisOtherWeek?: unknown
+  satoshisOtherMonth?: unknown
+  satoshisOtherTotal?: unknown
+  labelsDay?: unknown
+  labelsWeek?: unknown
+  labelsMonth?: unknown
+  labelsTotal?: unknown
+  tagsDay?: unknown
+  tagsWeek?: unknown
+  tagsMonth?: unknown
+  tagsTotal?: unknown
+  basketsDay?: unknown
+  basketsWeek?: unknown
+  basketsMonth?: unknown
+  basketsTotal?: unknown
+  transactionsDay?: unknown
+  transactionsWeek?: unknown
+  transactionsMonth?: unknown
+  transactionsTotal?: unknown
+  txCompletedDay?: unknown
+  txCompletedWeek?: unknown
+  txCompletedMonth?: unknown
+  txCompletedTotal?: unknown
+  txFailedDay?: unknown
+  txFailedWeek?: unknown
+  txFailedMonth?: unknown
+  txFailedTotal?: unknown
+  txNosendDay?: unknown
+  txNosendWeek?: unknown
+  txNosendMonth?: unknown
+  txNosendTotal?: unknown
+  txUnprovenDay?: unknown
+  txUnprovenWeek?: unknown
+  txUnprovenMonth?: unknown
+  txUnprovenTotal?: unknown
+  txSendingDay?: unknown
+  txSendingWeek?: unknown
+  txSendingMonth?: unknown
+  txSendingTotal?: unknown
+  txUnprocessedDay?: unknown
+  txUnprocessedWeek?: unknown
+  txUnprocessedMonth?: unknown
+  txUnprocessedTotal?: unknown
+  txUnsignedDay?: unknown
+  txUnsignedWeek?: unknown
+  txUnsignedMonth?: unknown
+  txUnsignedTotal?: unknown
+  txNonfinalDay?: unknown
+  txNonfinalWeek?: unknown
+  txNonfinalMonth?: unknown
+  txNonfinalTotal?: unknown
+  txUnfailDay?: unknown
+  txUnfailWeek?: unknown
+  txUnfailMonth?: unknown
+  txUnfailTotal?: unknown
+}
+
 function prettyJson(value?: string): string | undefined {
   if (!value) return undefined
   try {
@@ -47,6 +117,41 @@ function prettyJson(value?: string): string | undefined {
   } catch {
     return value
   }
+}
+
+function alignLeft(value: unknown, width: number): string {
+  const text = String(value)
+  return text.length > width ? `${text.slice(0, width - 1)}…` : text.padEnd(width)
+}
+
+function alignRight(value: unknown, width: number): string {
+  const text = String(value)
+  return text.length > width ? `…${text.slice(-width + 1)}` : text.padStart(width)
+}
+
+function toAdminStatsLog(stats: AdminStatsLike): string {
+  const row = (label: string, day: unknown, week: unknown, month: unknown, total: unknown) =>
+    `  ${alignLeft(label, 13)} ${alignRight(day ?? '', 18)} ${alignRight(week ?? '', 18)} ${alignRight(month ?? '', 18)} ${alignRight(total ?? '', 18)}\n`
+
+  let log = `StorageAdminStats: ${stats.when ?? ''} ${stats.requestedBy ?? ''}\n`
+  log += `  ${alignLeft('', 13)} ${alignRight('Day', 18)} ${alignRight('Week', 18)} ${alignRight('Month', 18)} ${alignRight('Total', 18)}\n`
+  log += row('users', stats.usersDay, stats.usersWeek, stats.usersMonth, stats.usersTotal)
+  log += row('change sats', stats.satoshisDefaultDay, stats.satoshisDefaultWeek, stats.satoshisDefaultMonth, stats.satoshisDefaultTotal)
+  log += row('other sats', stats.satoshisOtherDay, stats.satoshisOtherWeek, stats.satoshisOtherMonth, stats.satoshisOtherTotal)
+  log += row('labels', stats.labelsDay, stats.labelsWeek, stats.labelsMonth, stats.labelsTotal)
+  log += row('tags', stats.tagsDay, stats.tagsWeek, stats.tagsMonth, stats.tagsTotal)
+  log += row('baskets', stats.basketsDay, stats.basketsWeek, stats.basketsMonth, stats.basketsTotal)
+  log += row('transactions', stats.transactionsDay, stats.transactionsWeek, stats.transactionsMonth, stats.transactionsTotal)
+  log += row('completed', stats.txCompletedDay, stats.txCompletedWeek, stats.txCompletedMonth, stats.txCompletedTotal)
+  log += row('failed', stats.txFailedDay, stats.txFailedWeek, stats.txFailedMonth, stats.txFailedTotal)
+  log += row('nosend', stats.txNosendDay, stats.txNosendWeek, stats.txNosendMonth, stats.txNosendTotal)
+  log += row('unproven', stats.txUnprovenDay, stats.txUnprovenWeek, stats.txUnprovenMonth, stats.txUnprovenTotal)
+  log += row('sending', stats.txSendingDay, stats.txSendingWeek, stats.txSendingMonth, stats.txSendingTotal)
+  log += row('unprocessed', stats.txUnprocessedDay, stats.txUnprocessedWeek, stats.txUnprocessedMonth, stats.txUnprocessedTotal)
+  log += row('unsigned', stats.txUnsignedDay, stats.txUnsignedWeek, stats.txUnsignedMonth, stats.txUnsignedTotal)
+  log += row('nonfinal', stats.txNonfinalDay, stats.txNonfinalWeek, stats.txNonfinalMonth, stats.txNonfinalTotal)
+  log += row('unfail', stats.txUnfailDay, stats.txUnfailWeek, stats.txUnfailMonth, stats.txUnfailTotal)
+  return log
 }
 
 function parseJson(value?: string): unknown {
@@ -229,6 +334,11 @@ export class AdminServer {
     this.setupRoutes()
   }
 
+  private getSdkBundlePath(): string {
+    const sdkMainPath = require.resolve('@bsv/sdk')
+    return path.resolve(path.dirname(sdkMainPath), '../umd/bundle.js')
+  }
+
   private setupRoutes(): void {
     this.app.use(express.json({ limit: '5mb' }))
     this.app.use((req: any, res: any, next: any) => {
@@ -243,6 +353,14 @@ export class AdminServer {
       res.json({ ok: true, chain: this.context.config.chain })
     })
 
+    this.app.get('/admin/assets/bsv-sdk.js', (_req: any, res: any) => {
+      res.type('application/javascript').sendFile(this.getSdkBundlePath())
+    })
+
+    this.app.get('/admin', (_req: any, res: any) => {
+      res.type('text/html').send(renderAdminPage())
+    })
+
     if (!this.context.authWallet || this.context.config.adminIdentityKeys.length === 0) {
       this.app.use((_req: any, res: any) => {
         res.status(503).type('text/plain').send('Admin server requires ADMIN_IDENTITY_KEYS and a running monitor runtime.')
@@ -251,22 +369,22 @@ export class AdminServer {
     }
 
     this.app.use(
-      '/admin',
       createAuthMiddleware({
         wallet: this.context.authWallet
       })
     )
-    this.app.use('/admin', this.requireAdmin.bind(this))
-
-    this.app.get('/admin', (_req: any, res: any) => {
-      res.type('text/html').send(renderAdminPage())
-    })
+    this.app.use('/admin/api', this.requireAdmin.bind(this))
 
     this.app.get('/admin/api/stats', async (req: any, res: any) => {
       const storage = await getStorage(this.context)
       const stats = await storage.adminStats(req.auth.identityKey)
       const reqsTotal = await storage.countProvenTxReqs({ partial: {} })
-      res.json({ requestedBy: req.auth.identityKey, stats: { ...stats, reqsTotal } })
+      const mergedStats = { ...stats, reqsTotal }
+      res.json({
+        requestedBy: req.auth.identityKey,
+        stats: mergedStats,
+        statsLog: toAdminStatsLog(stats)
+      })
     })
 
     this.app.get('/admin/api/events', async (req: any, res: any) => {

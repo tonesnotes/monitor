@@ -27,22 +27,12 @@ export function renderAdminPage(): string {
       color: var(--ink);
       font-family: var(--sans);
     }
-    main {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 24px;
-    }
+    main { width: 100%; padding: 24px; }
     h1, h2, h3 { margin: 0 0 12px; font-weight: 700; }
     h1 { font-size: 2rem; }
     h2 { font-size: 1.2rem; }
     p, label, button, input, select, table { font-size: 0.95rem; }
     .subtle { color: var(--muted); }
-    .grid {
-      display: grid;
-      gap: 16px;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      margin-top: 20px;
-    }
     .panel {
       background: rgba(255, 250, 240, 0.92);
       border: 1px solid var(--line);
@@ -51,20 +41,30 @@ export function renderAdminPage(): string {
       box-shadow: 0 14px 40px rgba(59, 36, 14, 0.08);
       backdrop-filter: blur(12px);
     }
-    .stats {
-      display: grid;
-      gap: 12px;
-      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-      margin-top: 12px;
+    .stack { display: grid; gap: 16px; margin-top: 20px; }
+    details.panel {
+      padding: 0;
+      overflow: hidden;
     }
-    .stat {
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 10px 12px;
-      background: rgba(255,255,255,0.55);
+    details.panel[open] summary { border-bottom: 1px solid var(--line); }
+    summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 18px;
+      font-size: 1.3rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
-    .stat .k { display: block; color: var(--muted); font-size: 0.8rem; }
-    .stat .v { display: block; font-size: 1.2rem; margin-top: 4px; }
+    summary::-webkit-details-marker { display: none; }
+    summary::after {
+      content: '+';
+      color: var(--accent);
+      font-size: 1.4rem;
+    }
+    details[open] summary::after { content: '−'; }
+    .panel-body { padding: 18px; }
     .toolbar {
       display: flex;
       flex-wrap: wrap;
@@ -138,6 +138,25 @@ export function renderAdminPage(): string {
       margin-top: 12px;
       color: var(--warn);
     }
+    .stats-table {
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+    .stats-table th:first-child,
+    .stats-table td:first-child {
+      position: sticky;
+      left: 0;
+      background: var(--panel);
+    }
+    .pill {
+      display: inline-block;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 4px 10px;
+      color: var(--muted);
+      font-size: 0.85rem;
+      background: rgba(255,255,255,0.55);
+    }
   </style>
 </head>
 <body>
@@ -145,41 +164,64 @@ export function renderAdminPage(): string {
     <h1>Monitor Admin</h1>
     <p class="subtle">Authenticated operator console for monitor status, event review, req investigation, and targeted task execution.</p>
     <p id="authNotice" class="notice"></p>
-    <div class="grid">
-      <section class="panel">
-        <h2>Stats</h2>
+    <div class="stack">
+      <details class="panel" open>
+        <summary>Stats</summary>
+        <div class="panel-body">
         <div class="toolbar">
           <button id="refreshStats" class="primary">Refresh Stats</button>
+          <span id="statsWhen" class="pill"></span>
         </div>
-        <div id="stats" class="stats"></div>
+        <div style="overflow:auto">
+          <table id="statsTable" class="stats-table">
+            <thead>
+              <tr>
+                <th>Metric</th>
+                <th>Day</th>
+                <th>Week</th>
+                <th>Month</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <details>
+          <summary style="padding: 12px 0; font-size: 1rem;">Formatted Admin Log</summary>
+          <pre id="statsLog"></pre>
+        </details>
         <pre id="statsRaw"></pre>
-      </section>
-      <section class="panel">
-        <h2>Tasks</h2>
+        </div>
+      </details>
+      <details class="panel" open>
+        <summary>Tasks</summary>
+        <div class="panel-body">
         <div class="toolbar">
           <button id="refreshTasks">Refresh Tasks</button>
         </div>
         <div id="tasks"></div>
         <pre id="taskLog"></pre>
-      </section>
-    </div>
-    <div class="grid">
-      <section class="panel">
-        <h2>Monitor Events</h2>
+        </div>
+      </details>
+      <details class="panel" open>
+        <summary>Monitor Events</summary>
+        <div class="panel-body">
         <div class="toolbar">
           <label>Limit<input id="eventsLimit" type="number" value="20" min="1" max="200" /></label>
           <label>Event<input id="eventsName" type="text" placeholder="optional event name" /></label>
           <button id="refreshEvents">Load Events</button>
         </div>
         <div id="events" class="event-list"></div>
-      </section>
-      <section class="panel">
-        <h2>Req Review</h2>
+        </div>
+      </details>
+      <details class="panel" open>
+        <summary>Req Review</summary>
+        <div class="panel-body">
         <div class="toolbar">
           <label>Status<input id="reqStatus" type="text" placeholder="doubleSpend" /></label>
           <label>Txid<input id="reqTxid" type="text" placeholder="exact txid" /></label>
           <label>Min Tx Id<input id="reqMinTransactionId" type="number" value="150000" min="0" /></label>
-          <label>Limit<input id="reqLimit" type="number" value="25" min="1" max="200" /></label>
+          <label>Limit<input id="reqLimit" type="number" value="50" min="1" max="200" /></label>
           <button id="refreshReqs" class="primary">Load Review Rows</button>
         </div>
         <div class="subtle" id="reqSummary"></div>
@@ -201,14 +243,31 @@ export function renderAdminPage(): string {
           </table>
         </div>
         <pre id="reqDetail"></pre>
-      </section>
+        </div>
+      </details>
     </div>
   </main>
+  <script src="/admin/assets/bsv-sdk.js"></script>
   <script>
     const byId = id => document.getElementById(id)
+    let authFetch
+    let identityKey = ''
+
+    async function ensureAuthFetch() {
+      if (authFetch) return authFetch
+      const sdk = window.bsv
+      if (!sdk || !sdk.AuthFetch || !sdk.WalletClient) {
+        throw new Error('BSV SDK bundle failed to load.')
+      }
+      const wallet = new sdk.WalletClient('auto', window.location.host)
+      identityKey = (await wallet.getPublicKey({ identityKey: true })).publicKey
+      authFetch = new sdk.AuthFetch(wallet)
+      return authFetch
+    }
 
     async function api(path, options) {
-      const response = await fetch(path, options)
+      const client = await ensureAuthFetch()
+      const response = await client.fetch(window.location.origin + path, options)
       if (!response.ok) {
         const text = await response.text()
         throw new Error(text || response.statusText)
@@ -224,18 +283,45 @@ export function renderAdminPage(): string {
       return JSON.stringify(value, null, 2)
     }
 
+    function renderStatsTable(stats) {
+      const rows = [
+        ['users', stats.usersDay, stats.usersWeek, stats.usersMonth, stats.usersTotal],
+        ['change sats', stats.satoshisDefaultDay, stats.satoshisDefaultWeek, stats.satoshisDefaultMonth, stats.satoshisDefaultTotal],
+        ['other sats', stats.satoshisOtherDay, stats.satoshisOtherWeek, stats.satoshisOtherMonth, stats.satoshisOtherTotal],
+        ['labels', stats.labelsDay, stats.labelsWeek, stats.labelsMonth, stats.labelsTotal],
+        ['tags', stats.tagsDay, stats.tagsWeek, stats.tagsMonth, stats.tagsTotal],
+        ['baskets', stats.basketsDay, stats.basketsWeek, stats.basketsMonth, stats.basketsTotal],
+        ['transactions', stats.transactionsDay, stats.transactionsWeek, stats.transactionsMonth, stats.transactionsTotal],
+        ['completed', stats.txCompletedDay, stats.txCompletedWeek, stats.txCompletedMonth, stats.txCompletedTotal],
+        ['failed', stats.txFailedDay, stats.txFailedWeek, stats.txFailedMonth, stats.txFailedTotal],
+        ['nosend', stats.txNosendDay, stats.txNosendWeek, stats.txNosendMonth, stats.txNosendTotal],
+        ['unproven', stats.txUnprovenDay, stats.txUnprovenWeek, stats.txUnprovenMonth, stats.txUnprovenTotal],
+        ['sending', stats.txSendingDay, stats.txSendingWeek, stats.txSendingMonth, stats.txSendingTotal],
+        ['unprocessed', stats.txUnprocessedDay, stats.txUnprocessedWeek, stats.txUnprocessedMonth, stats.txUnprocessedTotal],
+        ['unsigned', stats.txUnsignedDay, stats.txUnsignedWeek, stats.txUnsignedMonth, stats.txUnsignedTotal],
+        ['nonfinal', stats.txNonfinalDay, stats.txNonfinalWeek, stats.txNonfinalMonth, stats.txNonfinalTotal],
+        ['unfail', stats.txUnfailDay, stats.txUnfailWeek, stats.txUnfailMonth, stats.txUnfailTotal]
+      ]
+      const body = byId('statsTable').querySelector('tbody')
+      body.innerHTML = ''
+      rows.forEach(row => {
+        const tr = document.createElement('tr')
+        tr.innerHTML =
+          '<td>' + row[0] + '</td>' +
+          '<td>' + (row[1] ?? '-') + '</td>' +
+          '<td>' + (row[2] ?? '-') + '</td>' +
+          '<td>' + (row[3] ?? '-') + '</td>' +
+          '<td>' + (row[4] ?? '-') + '</td>'
+        body.appendChild(tr)
+      })
+    }
+
     async function loadStats() {
       const result = await api('/admin/api/stats')
       const stats = result.stats || {}
-      const target = byId('stats')
-      target.innerHTML = ''
-      const keys = ['usersTotal', 'transactionsTotal', 'txUnprovenTotal', 'txSendingTotal', 'txFailedTotal', 'reqsTotal']
-      keys.forEach(key => {
-        const el = document.createElement('div')
-        el.className = 'stat'
-        el.innerHTML = '<span class="k">' + key + '</span><span class="v">' + (stats[key] ?? '-') + '</span>'
-        target.appendChild(el)
-      })
+      renderStatsTable(stats)
+      byId('statsWhen').textContent = (stats.when || '').toString()
+      byId('statsLog').textContent = result.statsLog || ''
       byId('statsRaw').textContent = pretty(result)
       setNotice('Authenticated as ' + result.requestedBy)
     }
@@ -340,6 +426,8 @@ export function renderAdminPage(): string {
 
     async function init() {
       try {
+        await ensureAuthFetch()
+        setNotice('Authenticated as ' + identityKey)
         await Promise.all([loadStats(), loadTasks(), loadEvents(), loadReqs()])
       } catch (error) {
         setNotice(error.message || String(error))
