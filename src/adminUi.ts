@@ -383,7 +383,7 @@ export function renderAdminPage(): string {
         <summary>User UTXO Review</summary>
         <div class="panel-body">
         <div class="toolbar">
-          <label>Identity Key<input id="utxoIdentityKey" class="wide-input mono" type="text" placeholder="enter full identityKey" /></label>
+          <label>Identity Key / User ID<input id="utxoIdentityKey" class="wide-input mono" type="text" placeholder="enter identityKey or numeric userId" /></label>
           <label>Mode
             <select id="utxoMode">
               <option value="all">all invalid UTXOs</option>
@@ -393,10 +393,10 @@ export function renderAdminPage(): string {
           <button id="runUtxoReview" class="primary">Run Review</button>
         </div>
         <div class="toolbar">
-          <button id="loadUtxoUsers">Load Recent Users</button>
-          <label>Recent Users
+          <button id="loadUtxoUsers">Load Recently Active Users</button>
+          <label>Recently Active Users
             <select id="utxoUserSelect" class="compact-select mono">
-              <option value="">select a recent user</option>
+              <option value="">select a recently active user</option>
             </select>
           </label>
           <span id="utxoUserSummary" class="pill"></span>

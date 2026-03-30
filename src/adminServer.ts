@@ -307,12 +307,7 @@ async function queryUsers(context: RuntimeContext, query: Record<string, unknown
   const storage = await getStorage(context)
   const search = typeof query.search === 'string' ? query.search.trim() : ''
   const limit = Math.min(Math.max(asNumber(query.limit, 50), 1), 200)
-
-  const users = await storage.findUsers({
-    partial: {},
-    orderDescending: true,
-    paged: { limit: search ? 200 : limit, offset: 0 }
-  })
+  const users = await storage.recentlyActiveUsers(search ? 200 : limit)
 
   const filtered = search
     ? users.filter(
@@ -328,6 +323,22 @@ async function queryUsers(context: RuntimeContext, query: Record<string, unknown
       isActive: user.activeStorage
     }))
   }
+}
+
+async function resolveIdentityKeyFromInput(context: RuntimeContext, userInput: string): Promise<string> {
+  const value = userInput.trim()
+  if (!value) throw new Error('identityKey or userId is required.')
+
+  if (value.length < 64) {
+    const storage = await getStorage(context)
+    const userId = asNumber(value, -1)
+    if (userId < 0) throw new Error('userId must be a valid integer.')
+    const user = (await storage.findUsers({ partial: { userId } }))[0]
+    if (!user?.identityKey) throw new Error(`User ${userId} was not found.`)
+    return user.identityKey
+  }
+
+  return value
 }
 
 async function queryMonitorCallHistory(context: RuntimeContext, query: Record<string, unknown>) {
@@ -368,11 +379,12 @@ async function queryMonitorCallHistory(context: RuntimeContext, query: Record<st
 async function reviewUtxosByIdentityKey(
   context: RuntimeContext,
   requestedBy: string,
-  identityKey: string,
+  userInput: string,
   mode: 'all' | 'change'
 ) {
   const storage = await getStorage(context)
   const task = getReviewUtxosTask(context)
+  const identityKey = await resolveIdentityKeyFromInput(context, userInput)
   const log = await task.reviewByIdentityKey(identityKey, mode)
 
   await storage.insertMonitorEvent({
@@ -584,10 +596,10 @@ export class AdminServer {
     })
 
     this.app.post('/admin/api/review-utxos', async (req: any, res: any) => {
-      const identityKey = typeof req.body?.identityKey === 'string' ? req.body.identityKey.trim() : ''
-      if (!identityKey) throw new Error('identityKey is required.')
+      const userInput = typeof req.body?.identityKey === 'string' ? req.body.identityKey.trim() : ''
+      if (!userInput) throw new Error('identityKey or userId is required.')
       const mode = normalizeReviewMode(req.body?.mode)
-      res.json(await reviewUtxosByIdentityKey(this.context, req.auth.identityKey, identityKey, mode))
+      res.json(await reviewUtxosByIdentityKey(this.context, req.auth.identityKey, userInput, mode))
     })
 
     this.app.get('/admin/api/proven-tx-reqs/review', async (req: any, res: any) => {
