@@ -295,6 +295,10 @@ export function renderAdminPage(): string {
       color: var(--muted);
       font-size: 0.8rem;
     }
+    .loading-text {
+      color: var(--muted);
+      font-style: italic;
+    }
     .history-nav {
       display: flex;
       flex-wrap: wrap;
@@ -488,6 +492,19 @@ export function renderAdminPage(): string {
 
     function pretty(value) {
       return JSON.stringify(value, null, 2)
+    }
+
+    function setButtonPending(id, pending, pendingText) {
+      const button = byId(id)
+      if (!button) return
+      if (pending) {
+        if (!button.dataset.originalText) button.dataset.originalText = button.textContent
+        button.textContent = pendingText
+        button.disabled = true
+        return
+      }
+      button.textContent = button.dataset.originalText || button.textContent
+      button.disabled = false
     }
 
     function statText(value) {
@@ -820,11 +837,18 @@ export function renderAdminPage(): string {
     }
 
     async function loadStats() {
-      const result = await api('/admin/api/stats')
-      const stats = result.stats || {}
-      renderStatsTable(stats)
-      byId('statsWhen').textContent = (stats.when || '').toString()
-      setNotice('Authenticated as ' + result.requestedBy)
+      setButtonPending('refreshStats', true, 'Loading...')
+      byId('statsTable').querySelector('tbody').innerHTML =
+        '<tr><td colspan="5" class="loading-text">Loading stats...</td></tr>'
+      try {
+        const result = await api('/admin/api/stats')
+        const stats = result.stats || {}
+        renderStatsTable(stats)
+        byId('statsWhen').textContent = (stats.when || '').toString()
+        setNotice('Authenticated as ' + result.requestedBy)
+      } finally {
+        setButtonPending('refreshStats', false)
+      }
     }
 
     async function loadTasks() {
@@ -851,8 +875,14 @@ export function renderAdminPage(): string {
     }
 
     async function loadUtxoUsers() {
-      const result = await api('/admin/api/users?limit=50')
-      renderUtxoUsers(result.users || [], result.total || 0)
+      setButtonPending('loadUtxoUsers', true, 'Loading...')
+      byId('utxoUserSummary').textContent = 'Loading...'
+      try {
+        const result = await api('/admin/api/users?limit=50')
+        renderUtxoUsers(result.users || [], result.total || 0)
+      } finally {
+        setButtonPending('loadUtxoUsers', false)
+      }
     }
 
     async function runUtxoReview() {
@@ -863,13 +893,19 @@ export function renderAdminPage(): string {
       }
       byId('utxoIdentityKey').value = identityKey
       const mode = byId('utxoMode').value === 'change' ? 'change' : 'all'
-      const result = await api('/admin/api/review-utxos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identityKey, mode })
-      })
-      byId('utxoReviewLog').textContent = result.log || ''
-      setNotice('Authenticated as ' + result.requestedBy)
+      setButtonPending('runUtxoReview', true, 'Running...')
+      byId('utxoReviewLog').textContent = 'Running review...'
+      try {
+        const result = await api('/admin/api/review-utxos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identityKey, mode })
+        })
+        byId('utxoReviewLog').textContent = result.log || ''
+        setNotice('Authenticated as ' + result.requestedBy)
+      } finally {
+        setButtonPending('runUtxoReview', false)
+      }
     }
 
     async function loadEvents() {
