@@ -142,12 +142,66 @@ export function renderAdminPage(): string {
     .stats-table {
       font-family: var(--mono);
       font-size: 0.78rem;
+      table-layout: fixed;
+      white-space: nowrap;
+      width: auto;
+      min-width: 0;
     }
     .stats-table th:first-child,
     .stats-table td:first-child {
       position: sticky;
       left: 0;
       background: var(--panel);
+    }
+    .stats-table th,
+    .stats-table td {
+      padding-top: 4px;
+      padding-bottom: 4px;
+    }
+    .stats-table thead th {
+      color: var(--ink);
+      font-weight: 700;
+      border-bottom: 2px solid #bda98c;
+      background: rgba(242, 223, 202, 0.72);
+      box-shadow: inset 0 -1px 0 rgba(139, 63, 22, 0.08);
+    }
+    .stats-table .stats-head-label,
+    .stats-table .stats-label {
+      text-align: left;
+    }
+    .stats-table .stats-head-num,
+    .stats-table .stats-num {
+      text-align: right;
+    }
+    .stats-table .stats-subrow {
+      color: var(--muted);
+    }
+    .stats-wrap {
+      display: inline-block;
+      max-width: 100%;
+      overflow-x: auto;
+      border: 1px solid rgba(217, 204, 183, 0.75);
+      border-radius: 12px;
+      background: rgba(255, 253, 250, 0.78);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+    }
+    .stats-table .stats-group td {
+      padding-top: 6px;
+      border-top: 1px solid rgba(165, 75, 26, 0.18);
+    }
+    .stats-table .stats-group .stats-label {
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .stats-table .stats-child .stats-label {
+      padding-left: 1.8ch;
+      position: relative;
+    }
+    .stats-table .stats-child .stats-label::before {
+      content: '↳';
+      position: absolute;
+      left: 0.2ch;
+      color: #9a8166;
     }
     .pill {
       display: inline-block;
@@ -168,6 +222,102 @@ export function renderAdminPage(): string {
       max-width: 100%;
     }
     .mono { font-family: var(--mono); }
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .service-groups {
+      display: grid;
+      gap: 12px;
+    }
+    .service-group {
+      border: 1px solid rgba(217, 204, 183, 0.8);
+      border-radius: 12px;
+      background: rgba(255, 253, 250, 0.72);
+      padding: 10px;
+    }
+    .service-group h3 {
+      font-size: 0.96rem;
+      margin-bottom: 6px;
+    }
+    .service-table {
+      width: auto;
+      min-width: 100%;
+      margin-top: 0;
+      font-size: 0.73rem;
+    }
+    .service-table th {
+      color: var(--ink);
+      font-weight: 700;
+      background: rgba(242, 223, 202, 0.62);
+      border-bottom: 2px solid #bda98c;
+    }
+    .service-table th,
+    .service-table td {
+      padding: 4px 5px;
+      vertical-align: top;
+    }
+    .service-num {
+      text-align: right;
+      white-space: nowrap;
+    }
+    .service-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      max-width: 54ch;
+    }
+    .call-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border-radius: 999px;
+      padding: 2px 6px;
+      border: 1px solid rgba(217, 204, 183, 0.8);
+      background: rgba(255,255,255,0.86);
+      white-space: nowrap;
+    }
+    .call-chip.ok {
+      border-color: rgba(15, 118, 110, 0.35);
+      background: rgba(15, 118, 110, 0.08);
+      color: #0f5e58;
+    }
+    .call-chip.fail {
+      border-color: rgba(165, 75, 26, 0.35);
+      background: rgba(165, 75, 26, 0.08);
+      color: #8b3f16;
+    }
+    .service-empty {
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+    .history-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .history-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      align-items: center;
+    }
+    .history-buttons button {
+      min-height: 28px;
+      padding: 4px 7px;
+      font-size: 0.74rem;
+    }
+    .history-buttons button.active {
+      background: linear-gradient(180deg, #c5622b, var(--accent));
+      color: #fff8f2;
+      border-color: #8b3f16;
+    }
   </style>
 </head>
 <body>
@@ -183,7 +333,7 @@ export function renderAdminPage(): string {
           <button id="refreshStats" class="primary">Refresh Stats</button>
           <span id="statsWhen" class="pill"></span>
         </div>
-        <div style="overflow:auto">
+        <div class="stats-wrap">
           <table id="statsTable" class="stats-table">
             <thead>
               <tr>
@@ -197,11 +347,22 @@ export function renderAdminPage(): string {
             <tbody></tbody>
           </table>
         </div>
-        <details>
-          <summary style="padding: 12px 0; font-size: 1rem;">Formatted Admin Log</summary>
-          <pre id="statsLog"></pre>
-        </details>
-        <pre id="statsRaw"></pre>
+        </div>
+      </details>
+      <details class="panel" open>
+        <summary>Formatted Admin Log</summary>
+        <div class="panel-body">
+        <div class="section-head">
+          <div class="subtle">Provider-by-provider service history for the aggregated monitor and storage service layers.</div>
+          <button id="openAdminLogJson">Open JSON</button>
+        </div>
+        <div class="history-nav">
+          <button id="callHistoryNewer">Newer</button>
+          <button id="callHistoryOlder">Older</button>
+          <span id="callHistorySummary" class="pill"></span>
+        </div>
+        <div id="callHistoryButtons" class="history-buttons"></div>
+        <div id="adminLogTables" class="service-groups"></div>
         </div>
       </details>
       <details class="panel" open>
@@ -288,6 +449,7 @@ export function renderAdminPage(): string {
     const byId = id => document.getElementById(id)
     let authFetch
     let identityKey = ''
+    let callHistoryState = { offset: 0, limit: 10, selectedId: null, selected: null, total: 0 }
 
     async function ensureAuthFetch() {
       if (authFetch) return authFetch
@@ -319,11 +481,173 @@ export function renderAdminPage(): string {
       return JSON.stringify(value, null, 2)
     }
 
+    function statText(value) {
+      if (value === null || value === undefined || value === '') return '-'
+      return String(value)
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;')
+    }
+
+    function formatWhen(value) {
+      if (!value) return ''
+      const date = new Date(value)
+      if (Number.isNaN(date.getTime())) return String(value)
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    }
+
+    function formatCallChip(call) {
+      const kind = call.success ? 'ok' : 'fail'
+      const status = call.success ? 'S' : 'F'
+      const detail = call.result || call.error?.code || call.error?.message || ''
+      const titleParts = [call.when, detail].filter(Boolean)
+      return (
+        '<span class="call-chip ' + kind + '" title="' + escapeHtml(titleParts.join(' | ')) + '">' +
+        '<strong>' + status + '</strong>' +
+        '<span>' + escapeHtml(call.msecs + 'ms') + '</span>' +
+        (detail ? '<span>' + escapeHtml(detail) + '</span>' : '') +
+        '</span>'
+      )
+    }
+
+    function renderServiceHistoryDataset(title, history) {
+      if (!history || typeof history !== 'object') {
+        return '<div class="service-group"><h3>' + escapeHtml(title) + '</h3><div class="service-empty">No data.</div></div>'
+      }
+      const serviceNames = Object.keys(history).filter(name => name !== 'version')
+      if (!serviceNames.length) {
+        return '<div class="service-group"><h3>' + escapeHtml(title) + '</h3><div class="service-empty">No service history recorded.</div></div>'
+      }
+
+      const sections = serviceNames
+        .map(serviceName => {
+          const service = history[serviceName]
+          const providers = Object.values(service.historyByProvider || {})
+          if (!providers.length) {
+            return ''
+          }
+
+          const rows = providers
+            .map(provider => {
+              const interval = provider.resetCounts && provider.resetCounts.length ? provider.resetCounts[0] : null
+              const recent = (provider.calls || []).slice(0, 5)
+              return (
+                '<tr>' +
+                '<td>' + escapeHtml(provider.providerName) + '</td>' +
+                '<td class="service-num">' + escapeHtml((interval?.success ?? 0) + '/' + (interval?.failure ?? 0) + '/' + (interval?.error ?? 0)) + '</td>' +
+                '<td class="service-num">' + escapeHtml((provider.totalCounts?.success ?? 0) + '/' + (provider.totalCounts?.failure ?? 0) + '/' + (provider.totalCounts?.error ?? 0)) + '</td>' +
+                '<td>' + escapeHtml(formatWhen(interval?.since)) + '</td>' +
+                '<td><div class="service-list">' + (recent.length ? recent.map(formatCallChip).join('') : '<span class="service-empty">No recent calls</span>') + '</div></td>' +
+                '</tr>'
+              )
+            })
+            .join('')
+
+          return (
+            '<div class="service-group">' +
+            '<h3>' + escapeHtml(serviceName) + '</h3>' +
+            '<table class="service-table">' +
+            '<thead><tr><th>Provider</th><th class="service-num">Int S/F/E</th><th class="service-num">Tot S/F/E</th><th>Since</th><th>Recent</th></tr></thead>' +
+            '<tbody>' + rows + '</tbody>' +
+            '</table>' +
+            '</div>'
+          )
+        })
+        .filter(Boolean)
+        .join('')
+
+      return (
+        '<section>' +
+        '<div class="section-head"><h2>' + escapeHtml(title) + '</h2><span class="pill">' + escapeHtml(serviceNames.length + ' services') + '</span></div>' +
+        sections +
+        '</section>'
+      )
+    }
+
+    function renderAdminLogTables(stats) {
+      const container = byId('adminLogTables')
+      container.innerHTML = renderServiceHistoryDataset('Selected MonitorCallHistory Event', stats)
+    }
+
+    function openAdminLogJsonPopup() {
+      if (!callHistoryState.selected) {
+        setNotice('Load a MonitorCallHistory event first.')
+        return
+      }
+      const popup = window.open('', 'monitor-admin-log-json', 'popup=yes,width=1100,height=760')
+      if (!popup) {
+        setNotice('Popup was blocked by the browser.')
+        return
+      }
+      const payload = callHistoryState.selected
+      popup.document.title = 'Monitor Admin Log JSON'
+      popup.document.body.innerHTML =
+        '<pre style="margin:0;padding:16px;font:12px/1.4 SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;">' +
+        escapeHtml(JSON.stringify(payload, null, 2)) +
+        '</pre>'
+    }
+
+    function renderCallHistoryButtons(events, selectedId) {
+      const container = byId('callHistoryButtons')
+      container.innerHTML = ''
+      events.forEach(event => {
+        const button = document.createElement('button')
+        if (event.id === selectedId) button.className = 'active'
+        const timestamp = formatWhen(event.created_at)
+        button.textContent = '#' + event.id + ' ' + timestamp
+        button.onclick = () => loadCallHistory(callHistoryState.offset, event.id).catch(error => setNotice(error.message || String(error)))
+        container.appendChild(button)
+      })
+    }
+
+    async function loadCallHistory(offset = 0, selectedId) {
+      const query = new URLSearchParams()
+      query.set('offset', String(Math.max(0, offset)))
+      query.set('limit', String(callHistoryState.limit || 10))
+      if (selectedId) query.set('selectedId', String(selectedId))
+      const result = await api('/admin/api/call-history?' + query.toString())
+      callHistoryState = {
+        ...callHistoryState,
+        offset: result.offset || 0,
+        limit: result.limit || 10,
+        selectedId: result.selectedId || null,
+        selected: result.selected || null,
+        total: result.total || 0,
+        hasNewer: !!result.hasNewer,
+        hasOlder: !!result.hasOlder
+      }
+      renderCallHistoryButtons(result.events || [], result.selectedId)
+      byId('callHistorySummary').textContent = result.selected
+        ? 'event #' + result.selected.id + ' of ' + result.total
+        : 'no MonitorCallHistory events'
+      byId('callHistoryNewer').disabled = !result.hasNewer
+      byId('callHistoryOlder').disabled = !result.hasOlder
+      renderAdminLogTables(result.selected?.detailsJson || {})
+    }
+
     function renderStatsTable(stats) {
       const rows = [
-        ['users', stats.usersDay, stats.usersWeek, stats.usersMonth, stats.usersTotal],
-        ['change sats', stats.satoshisDefaultDay, stats.satoshisDefaultWeek, stats.satoshisDefaultMonth, stats.satoshisDefaultTotal],
-        ['other sats', stats.satoshisOtherDay, stats.satoshisOtherWeek, stats.satoshisOtherMonth, stats.satoshisOtherTotal],
+        { label: 'users', values: [stats.usersDay, stats.usersWeek, stats.usersMonth, stats.usersTotal] },
+        [
+          'change BSV',
+          stats.satoshisDefaultDayFormatted ?? stats.satoshisDefaultDay,
+          stats.satoshisDefaultWeekFormatted ?? stats.satoshisDefaultWeek,
+          stats.satoshisDefaultMonthFormatted ?? stats.satoshisDefaultMonth,
+          stats.satoshisDefaultTotalFormatted ?? stats.satoshisDefaultTotal
+        ],
+        [
+          'other BSV',
+          stats.satoshisOtherDayFormatted ?? stats.satoshisOtherDay,
+          stats.satoshisOtherWeekFormatted ?? stats.satoshisOtherWeek,
+          stats.satoshisOtherMonthFormatted ?? stats.satoshisOtherMonth,
+          stats.satoshisOtherTotalFormatted ?? stats.satoshisOtherTotal
+        ],
         ['labels', stats.labelsDay, stats.labelsWeek, stats.labelsMonth, stats.labelsTotal],
         ['tags', stats.tagsDay, stats.tagsWeek, stats.tagsMonth, stats.tagsTotal],
         ['baskets', stats.basketsDay, stats.basketsWeek, stats.basketsMonth, stats.basketsTotal],
@@ -338,17 +662,64 @@ export function renderAdminPage(): string {
         ['unsigned', stats.txUnsignedDay, stats.txUnsignedWeek, stats.txUnsignedMonth, stats.txUnsignedTotal],
         ['nonfinal', stats.txNonfinalDay, stats.txNonfinalWeek, stats.txNonfinalMonth, stats.txNonfinalTotal],
         ['unfail', stats.txUnfailDay, stats.txUnfailWeek, stats.txUnfailMonth, stats.txUnfailTotal]
-      ]
-      const body = byId('statsTable').querySelector('tbody')
+      ].map(row =>
+        Array.isArray(row)
+          ? {
+              label: row[0],
+              values: [row[1], row[2], row[3], row[4]],
+              group: row[0] === 'transactions',
+              child:
+                row[0] === 'completed' ||
+                row[0] === 'failed' ||
+                row[0] === 'abandoned' ||
+                row[0] === 'nosend' ||
+                row[0] === 'unproven' ||
+                row[0] === 'sending' ||
+                row[0] === 'unprocessed' ||
+                row[0] === 'unsigned' ||
+                row[0] === 'nonfinal' ||
+                row[0] === 'unfail'
+            }
+          : row
+      )
+      const headers = ['Metric', 'Day', 'Week', 'Month', 'Total']
+      const colWidths = headers.map((header, index) =>
+        rows.reduce((max, row) => Math.max(max, statText(index === 0 ? row.label : row.values[index - 1]).length), header.length)
+      )
+      const table = byId('statsTable')
+      const thead = table.querySelector('thead')
+      const body = table.querySelector('tbody')
+      table.querySelector('colgroup')?.remove()
+      const colgroup = document.createElement('colgroup')
+      colWidths.forEach((width, index) => {
+        const col = document.createElement('col')
+        const extra = index === 0 ? 2 : 1
+        col.style.width = (width + extra) + 'ch'
+        colgroup.appendChild(col)
+      })
+      table.insertBefore(colgroup, thead)
+      thead.innerHTML =
+        '<tr>' +
+        '<th class="stats-head-label">Metric</th>' +
+        '<th class="stats-head-num">Day</th>' +
+        '<th class="stats-head-num">Week</th>' +
+        '<th class="stats-head-num">Month</th>' +
+        '<th class="stats-head-num">Total</th>' +
+        '</tr>'
       body.innerHTML = ''
       rows.forEach(row => {
         const tr = document.createElement('tr')
+        const label = statText(row.label)
+        const classes = []
+        if (row.group) classes.push('stats-group')
+        if (row.child) classes.push('stats-subrow', 'stats-child')
+        tr.className = classes.join(' ')
         tr.innerHTML =
-          '<td>' + row[0] + '</td>' +
-          '<td>' + (row[1] ?? '-') + '</td>' +
-          '<td>' + (row[2] ?? '-') + '</td>' +
-          '<td>' + (row[3] ?? '-') + '</td>' +
-          '<td>' + (row[4] ?? '-') + '</td>'
+          '<td class="stats-label">' + label + '</td>' +
+          '<td class="stats-num">' + statText(row.values[0]) + '</td>' +
+          '<td class="stats-num">' + statText(row.values[1]) + '</td>' +
+          '<td class="stats-num">' + statText(row.values[2]) + '</td>' +
+          '<td class="stats-num">' + statText(row.values[3]) + '</td>'
         body.appendChild(tr)
       })
     }
@@ -370,8 +741,6 @@ export function renderAdminPage(): string {
       const stats = result.stats || {}
       renderStatsTable(stats)
       byId('statsWhen').textContent = (stats.when || '').toString()
-      byId('statsLog').textContent = result.statsLog || ''
-      byId('statsRaw').textContent = pretty(result)
       setNotice('Authenticated as ' + result.requestedBy)
     }
 
@@ -499,13 +868,22 @@ export function renderAdminPage(): string {
       try {
         await ensureAuthFetch()
         setNotice('Authenticated as ' + identityKey)
-        await Promise.all([loadStats(), loadTasks(), loadUtxoUsers(), loadEvents(), loadReqs()])
+        await Promise.all([loadStats(), loadCallHistory(), loadTasks(), loadUtxoUsers(), loadEvents(), loadReqs()])
       } catch (error) {
         setNotice(error.message || String(error))
       }
     }
 
     byId('refreshStats').onclick = () => loadStats().catch(error => setNotice(error.message || String(error)))
+    byId('openAdminLogJson').onclick = () => openAdminLogJsonPopup()
+    byId('callHistoryNewer').onclick = () =>
+      loadCallHistory(Math.max(0, callHistoryState.offset - callHistoryState.limit)).catch(error =>
+        setNotice(error.message || String(error))
+      )
+    byId('callHistoryOlder').onclick = () =>
+      loadCallHistory(callHistoryState.offset + callHistoryState.limit).catch(error =>
+        setNotice(error.message || String(error))
+      )
     byId('refreshTasks').onclick = () => loadTasks().catch(error => setNotice(error.message || String(error)))
     byId('loadUtxoUsers').onclick = () => loadUtxoUsers().catch(error => setNotice(error.message || String(error)))
     byId('utxoUserSelect').onchange = event => {

@@ -330,6 +330,41 @@ async function queryUsers(context: RuntimeContext, query: Record<string, unknown
   }
 }
 
+async function queryMonitorCallHistory(context: RuntimeContext, query: Record<string, unknown>) {
+  const storage = await getStorage(context)
+  const limit = Math.min(Math.max(asNumber(query.limit, 10), 1), 10)
+  const offset = Math.max(asNumber(query.offset, 0), 0)
+  const selectedId = asNumber(query.selectedId, -1)
+
+  const partial = { event: 'MonitorCallHistory' as const }
+  const [events, total] = await Promise.all([
+    storage.findMonitorEvents({ partial, orderDescending: true, paged: { limit, offset } }),
+    storage.countMonitorEvents({ partial })
+  ])
+
+  const mapped = events.map(event => ({
+    id: event.id,
+    created_at: event.created_at,
+    updated_at: event.updated_at,
+    event: event.event,
+    detailsJson: parseJson(event.details),
+    detailsPretty: prettyJson(event.details)
+  }))
+
+  const selected = mapped.find(event => event.id === selectedId) || mapped[0] || null
+
+  return {
+    total,
+    offset,
+    limit,
+    selectedId: selected?.id,
+    hasNewer: offset > 0,
+    hasOlder: offset + mapped.length < total,
+    events: mapped,
+    selected
+  }
+}
+
 async function reviewUtxosByIdentityKey(
   context: RuntimeContext,
   requestedBy: string,
@@ -474,8 +509,18 @@ export class AdminServer {
     this.app.get('/admin/api/stats', async (req: any, res: any) => {
       const storage = await getStorage(this.context)
       const stats = await storage.adminStats(req.auth.identityKey)
+      const formattedStats = {
+        satoshisDefaultDayFormatted: formatSatoshis(stats.satoshisDefaultDay),
+        satoshisDefaultWeekFormatted: formatSatoshis(stats.satoshisDefaultWeek),
+        satoshisDefaultMonthFormatted: formatSatoshis(stats.satoshisDefaultMonth),
+        satoshisDefaultTotalFormatted: formatSatoshis(stats.satoshisDefaultTotal),
+        satoshisOtherDayFormatted: formatSatoshis(stats.satoshisOtherDay),
+        satoshisOtherWeekFormatted: formatSatoshis(stats.satoshisOtherWeek),
+        satoshisOtherMonthFormatted: formatSatoshis(stats.satoshisOtherMonth),
+        satoshisOtherTotalFormatted: formatSatoshis(stats.satoshisOtherTotal)
+      }
       const reqsTotal = await storage.countProvenTxReqs({ partial: {} })
-      const mergedStats = { ...stats, reqsTotal }
+      const mergedStats = { ...stats, ...formattedStats, reqsTotal }
       res.json({
         requestedBy: req.auth.identityKey,
         stats: mergedStats,
@@ -516,6 +561,10 @@ export class AdminServer {
 
     this.app.get('/admin/api/users', async (req: any, res: any) => {
       res.json(await queryUsers(this.context, req.query || {}))
+    })
+
+    this.app.get('/admin/api/call-history', async (req: any, res: any) => {
+      res.json(await queryMonitorCallHistory(this.context, req.query || {}))
     })
 
     this.app.post('/admin/api/tasks/:name/run', async (req: any, res: any) => {
