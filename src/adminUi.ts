@@ -357,8 +357,8 @@ export function renderAdminPage(): string {
           <button id="openAdminLogJson">Open JSON</button>
         </div>
         <div class="history-nav">
-          <button id="callHistoryNewer">Newer</button>
-          <button id="callHistoryOlder">Older</button>
+          <button id="callHistoryNextDay">Next Day</button>
+          <button id="callHistoryPrevDay">Previous Day</button>
           <span id="callHistorySummary" class="pill"></span>
         </div>
         <div id="callHistoryButtons" class="history-buttons"></div>
@@ -449,7 +449,16 @@ export function renderAdminPage(): string {
     const byId = id => document.getElementById(id)
     let authFetch
     let identityKey = ''
-    let callHistoryState = { offset: 0, limit: 10, selectedId: null, selected: null, total: 0 }
+    let callHistoryState = { offset: 0, limit: 120, selected: null, total: 0, events: [], selectedByService: {} }
+    const serviceOrder = [
+      'getMerklePath',
+      'getRawTx',
+      'postBeef',
+      'getUtxoStatus',
+      'getStatusForTxids',
+      'getScriptHashHistory',
+      'updateFiatExchangeRates'
+    ]
 
     async function ensureAuthFetch() {
       if (authFetch) return authFetch
@@ -502,6 +511,13 @@ export function renderAdminPage(): string {
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     }
 
+    function toTimeValue(value) {
+      if (!value) return undefined
+      const date = new Date(value)
+      const time = date.getTime()
+      return Number.isNaN(time) ? undefined : time
+    }
+
     function formatCallChip(call) {
       const kind = call.success ? 'ok' : 'fail'
       const status = call.success ? 'S' : 'F'
@@ -516,27 +532,85 @@ export function renderAdminPage(): string {
       )
     }
 
-    function renderServiceHistoryDataset(title, history) {
-      if (!history || typeof history !== 'object') {
-        return '<div class="service-group"><h3>' + escapeHtml(title) + '</h3><div class="service-empty">No data.</div></div>'
-      }
-      const serviceNames = Object.keys(history).filter(name => name !== 'version')
-      if (!serviceNames.length) {
-        return '<div class="service-group"><h3>' + escapeHtml(title) + '</h3><div class="service-empty">No service history recorded.</div></div>'
-      }
+    function intervalCountsForService(serviceHistory) {
+      const providers = Object.values(serviceHistory?.historyByProvider || {})
+      return providers.reduce(
+        (totals, provider) => {
+          const interval = provider.resetCounts && provider.resetCounts.length ? provider.resetCounts[0] : null
+          totals.success += interval?.success ?? 0
+          totals.failure += interval?.failure ?? 0
+          totals.error += interval?.error ?? 0
+          return totals
+        },
+        { success: 0, failure: 0, error: 0 }
+      )
+    }
 
-      const sections = serviceNames
-        .map(serviceName => {
-          const service = history[serviceName]
-          const providers = Object.values(service.historyByProvider || {})
-          if (!providers.length) {
-            return ''
-          }
+    function totalCountsForService(serviceHistory) {
+      const providers = Object.values(serviceHistory?.historyByProvider || {})
+      return providers.reduce(
+        (totals, provider) => {
+          totals.success += provider.totalCounts?.success ?? 0
+          totals.failure += provider.totalCounts?.failure ?? 0
+          totals.error += provider.totalCounts?.error ?? 0
+          return totals
+        },
+        { success: 0, failure: 0, error: 0 }
+      )
+    }
 
-          const rows = providers
+    function visibleEventsForService(serviceName) {
+      return (callHistoryState.events || []).filter(event => {
+        const counts = intervalCountsForService(event.detailsJson?.[serviceName])
+        return counts.success + counts.failure + counts.error > 0
+      })
+    }
+
+    function renderServiceEventButtons(serviceName) {
+      const events = visibleEventsForService(serviceName)
+      if (!events.length) {
+        return '<div class="service-empty">No interval activity for this service in the current day window.</div>'
+      }
+      const selectedId = callHistoryState.selectedByService?.[serviceName]
+      return (
+        '<div class="history-buttons">' +
+        events
+          .map(event => {
+            const active = event.id === selectedId ? ' active' : ''
+            return (
+              '<button class="service-event-button' + active + '" data-service-name="' + escapeHtml(serviceName) + '" data-event-id="' + escapeHtml(event.id) + '">' +
+              '#' + escapeHtml(event.id) + ' ' + escapeHtml(formatWhen(event.created_at)) +
+              '</button>'
+            )
+          })
+          .join('') +
+        '</div>'
+      )
+    }
+
+    function renderServiceGroup(serviceName) {
+      const selectedId = callHistoryState.selectedByService?.[serviceName]
+      const selectedEvent = (callHistoryState.events || []).find(event => event.id === selectedId) || null
+      const serviceHistory = selectedEvent?.detailsJson?.[serviceName]
+      const intervalTotals = intervalCountsForService(serviceHistory)
+      const totalCounts = totalCountsForService(serviceHistory)
+      const providers = Object.values(serviceHistory?.historyByProvider || {})
+
+      const rows = providers.length
+        ? providers
             .map(provider => {
               const interval = provider.resetCounts && provider.resetCounts.length ? provider.resetCounts[0] : null
-              const recent = (provider.calls || []).slice(0, 5)
+              const since = toTimeValue(interval?.since)
+              const until = toTimeValue(interval?.until)
+              const recent = (provider.calls || [])
+                .filter(call => {
+                  const when = toTimeValue(call.when)
+                  if (when === undefined) return false
+                  if (since !== undefined && when < since) return false
+                  if (until !== undefined && when > until) return false
+                  return true
+                })
+                .slice(0, 5)
               return (
                 '<tr>' +
                 '<td>' + escapeHtml(provider.providerName) + '</td>' +
@@ -548,87 +622,96 @@ export function renderAdminPage(): string {
               )
             })
             .join('')
+        : '<tr><td colspan="5" class="service-empty">No provider data for selected event.</td></tr>'
 
-          return (
-            '<div class="service-group">' +
-            '<h3>' + escapeHtml(serviceName) + '</h3>' +
-            '<table class="service-table">' +
-            '<thead><tr><th>Provider</th><th class="service-num">Int S/F/E</th><th class="service-num">Tot S/F/E</th><th>Since</th><th>Recent</th></tr></thead>' +
-            '<tbody>' + rows + '</tbody>' +
-            '</table>' +
-            '</div>'
-          )
-        })
-        .filter(Boolean)
-        .join('')
+      const selectedSummary = selectedEvent
+        ? '<span class="pill">event #' + escapeHtml(selectedEvent.id) + ' interval ' + escapeHtml(intervalTotals.success + '/' + intervalTotals.failure + '/' + intervalTotals.error) + '</span>'
+        : '<span class="pill">no event selected</span>'
 
       return (
-        '<section>' +
-        '<div class="section-head"><h2>' + escapeHtml(title) + '</h2><span class="pill">' + escapeHtml(serviceNames.length + ' services') + '</span></div>' +
-        sections +
-        '</section>'
+        '<div class="service-group">' +
+        '<div class="section-head"><h3>' + escapeHtml(serviceName) + '</h3>' + selectedSummary + '</div>' +
+        '<div class="history-nav"><span class="pill">totals ' + escapeHtml(totalCounts.success + '/' + totalCounts.failure + '/' + totalCounts.error) + '</span></div>' +
+        renderServiceEventButtons(serviceName) +
+        '<table class="service-table">' +
+        '<thead><tr><th>Provider</th><th class="service-num">Int S/F/E</th><th class="service-num">Tot S/F/E</th><th>Since</th><th>Recent</th></tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
+        '</table>' +
+        '</div>'
       )
     }
 
-    function renderAdminLogTables(stats) {
+    function renderAdminLogTables() {
       const container = byId('adminLogTables')
-      container.innerHTML = renderServiceHistoryDataset('Selected MonitorCallHistory Event', stats)
+      container.innerHTML = serviceOrder.map(renderServiceGroup).join('')
+      container.querySelectorAll('.service-event-button').forEach(button => {
+        button.onclick = () => {
+          const serviceName = button.getAttribute('data-service-name')
+          const eventId = Number(button.getAttribute('data-event-id'))
+          if (!serviceName || !eventId) return
+          callHistoryState.selectedByService[serviceName] = eventId
+          renderAdminLogTables()
+        }
+      })
     }
 
     function openAdminLogJsonPopup() {
-      if (!callHistoryState.selected) {
-        setNotice('Load a MonitorCallHistory event first.')
-        return
-      }
+      const selected = serviceOrder.reduce((acc, serviceName) => {
+        const eventId = callHistoryState.selectedByService?.[serviceName]
+        const event = (callHistoryState.events || []).find(item => item.id === eventId) || null
+        acc[serviceName] = event
+        return acc
+      }, {})
       const popup = window.open('', 'monitor-admin-log-json', 'popup=yes,width=1100,height=760')
       if (!popup) {
         setNotice('Popup was blocked by the browser.')
         return
       }
-      const payload = callHistoryState.selected
       popup.document.title = 'Monitor Admin Log JSON'
       popup.document.body.innerHTML =
         '<pre style="margin:0;padding:16px;font:12px/1.4 SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;">' +
-        escapeHtml(JSON.stringify(payload, null, 2)) +
+        escapeHtml(JSON.stringify(selected, null, 2)) +
         '</pre>'
     }
 
-    function renderCallHistoryButtons(events, selectedId) {
-      const container = byId('callHistoryButtons')
-      container.innerHTML = ''
-      events.forEach(event => {
-        const button = document.createElement('button')
-        if (event.id === selectedId) button.className = 'active'
-        const timestamp = formatWhen(event.created_at)
-        button.textContent = '#' + event.id + ' ' + timestamp
-        button.onclick = () => loadCallHistory(callHistoryState.offset, event.id).catch(error => setNotice(error.message || String(error)))
-        container.appendChild(button)
-      })
-    }
-
-    async function loadCallHistory(offset = 0, selectedId) {
+    async function loadCallHistory(offset = 0) {
       const query = new URLSearchParams()
       query.set('offset', String(Math.max(0, offset)))
       query.set('limit', String(callHistoryState.limit || 10))
-      if (selectedId) query.set('selectedId', String(selectedId))
       const result = await api('/admin/api/call-history?' + query.toString())
+      const nextSelectedByService = { ...(callHistoryState.selectedByService || {}) }
+      serviceOrder.forEach(serviceName => {
+        const visible = (result.events || []).filter(event => {
+          const counts = intervalCountsForService(event.detailsJson?.[serviceName])
+          return counts.success + counts.failure + counts.error > 0
+        })
+        if (!visible.length) {
+          delete nextSelectedByService[serviceName]
+          return
+        }
+        const existing = nextSelectedByService[serviceName]
+        if (!visible.some(event => event.id === existing)) {
+          nextSelectedByService[serviceName] = visible[0].id
+        }
+      })
       callHistoryState = {
         ...callHistoryState,
         offset: result.offset || 0,
         limit: result.limit || 10,
-        selectedId: result.selectedId || null,
         selected: result.selected || null,
         total: result.total || 0,
+        events: result.events || [],
+        selectedByService: nextSelectedByService,
         hasNewer: !!result.hasNewer,
         hasOlder: !!result.hasOlder
       }
-      renderCallHistoryButtons(result.events || [], result.selectedId)
-      byId('callHistorySummary').textContent = result.selected
-        ? 'event #' + result.selected.id + ' of ' + result.total
+      byId('callHistoryButtons').innerHTML = ''
+      byId('callHistorySummary').textContent = result.events && result.events.length
+        ? 'day window ' + (result.offset + 1) + '-' + (result.offset + result.events.length) + ' of ' + result.total
         : 'no MonitorCallHistory events'
-      byId('callHistoryNewer').disabled = !result.hasNewer
-      byId('callHistoryOlder').disabled = !result.hasOlder
-      renderAdminLogTables(result.selected?.detailsJson || {})
+      byId('callHistoryNextDay').disabled = !result.hasNewer
+      byId('callHistoryPrevDay').disabled = !result.hasOlder
+      renderAdminLogTables()
     }
 
     function renderStatsTable(stats) {
@@ -876,11 +959,11 @@ export function renderAdminPage(): string {
 
     byId('refreshStats').onclick = () => loadStats().catch(error => setNotice(error.message || String(error)))
     byId('openAdminLogJson').onclick = () => openAdminLogJsonPopup()
-    byId('callHistoryNewer').onclick = () =>
+    byId('callHistoryNextDay').onclick = () =>
       loadCallHistory(Math.max(0, callHistoryState.offset - callHistoryState.limit)).catch(error =>
         setNotice(error.message || String(error))
       )
-    byId('callHistoryOlder').onclick = () =>
+    byId('callHistoryPrevDay').onclick = () =>
       loadCallHistory(callHistoryState.offset + callHistoryState.limit).catch(error =>
         setNotice(error.message || String(error))
       )

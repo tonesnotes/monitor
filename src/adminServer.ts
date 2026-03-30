@@ -332,7 +332,7 @@ async function queryUsers(context: RuntimeContext, query: Record<string, unknown
 
 async function queryMonitorCallHistory(context: RuntimeContext, query: Record<string, unknown>) {
   const storage = await getStorage(context)
-  const limit = Math.min(Math.max(asNumber(query.limit, 10), 1), 10)
+  const limit = Math.min(Math.max(asNumber(query.limit, 120), 1), 120)
   const offset = Math.max(asNumber(query.offset, 0), 0)
   const selectedId = asNumber(query.selectedId, -1)
 
