@@ -1,5 +1,5 @@
 import { Transaction } from '@bsv/sdk'
-import { Services, sdk } from '@bsv/wallet-toolbox'
+import { Format, Services, sdk } from '@bsv/wallet-toolbox'
 import { renderAdminPage } from './adminUi'
 import { RuntimeContext } from './bootstrap'
 import path from 'path'
@@ -80,6 +80,10 @@ type AdminStatsLike = {
   txFailedWeek?: unknown
   txFailedMonth?: unknown
   txFailedTotal?: unknown
+  txAbandonedDay?: unknown
+  txAbandonedWeek?: unknown
+  txAbandonedMonth?: unknown
+  txAbandonedTotal?: unknown
   txNosendDay?: unknown
   txNosendWeek?: unknown
   txNosendMonth?: unknown
@@ -136,14 +140,27 @@ function toAdminStatsLog(stats: AdminStatsLike): string {
   let log = `StorageAdminStats: ${stats.when ?? ''} ${stats.requestedBy ?? ''}\n`
   log += `  ${alignLeft('', 13)} ${alignRight('Day', 18)} ${alignRight('Week', 18)} ${alignRight('Month', 18)} ${alignRight('Total', 18)}\n`
   log += row('users', stats.usersDay, stats.usersWeek, stats.usersMonth, stats.usersTotal)
-  log += row('change sats', stats.satoshisDefaultDay, stats.satoshisDefaultWeek, stats.satoshisDefaultMonth, stats.satoshisDefaultTotal)
-  log += row('other sats', stats.satoshisOtherDay, stats.satoshisOtherWeek, stats.satoshisOtherMonth, stats.satoshisOtherTotal)
+  log += row(
+    'change sats',
+    formatSatoshis(stats.satoshisDefaultDay),
+    formatSatoshis(stats.satoshisDefaultWeek),
+    formatSatoshis(stats.satoshisDefaultMonth),
+    formatSatoshis(stats.satoshisDefaultTotal)
+  )
+  log += row(
+    'other sats',
+    formatSatoshis(stats.satoshisOtherDay),
+    formatSatoshis(stats.satoshisOtherWeek),
+    formatSatoshis(stats.satoshisOtherMonth),
+    formatSatoshis(stats.satoshisOtherTotal)
+  )
   log += row('labels', stats.labelsDay, stats.labelsWeek, stats.labelsMonth, stats.labelsTotal)
   log += row('tags', stats.tagsDay, stats.tagsWeek, stats.tagsMonth, stats.tagsTotal)
   log += row('baskets', stats.basketsDay, stats.basketsWeek, stats.basketsMonth, stats.basketsTotal)
   log += row('transactions', stats.transactionsDay, stats.transactionsWeek, stats.transactionsMonth, stats.transactionsTotal)
   log += row('completed', stats.txCompletedDay, stats.txCompletedWeek, stats.txCompletedMonth, stats.txCompletedTotal)
   log += row('failed', stats.txFailedDay, stats.txFailedWeek, stats.txFailedMonth, stats.txFailedTotal)
+  log += row('abandoned', stats.txAbandonedDay, stats.txAbandonedWeek, stats.txAbandonedMonth, stats.txAbandonedTotal)
   log += row('nosend', stats.txNosendDay, stats.txNosendWeek, stats.txNosendMonth, stats.txNosendTotal)
   log += row('unproven', stats.txUnprovenDay, stats.txUnprovenWeek, stats.txUnprovenMonth, stats.txUnprovenTotal)
   log += row('sending', stats.txSendingDay, stats.txSendingWeek, stats.txSendingMonth, stats.txSendingTotal)
@@ -152,6 +169,11 @@ function toAdminStatsLog(stats: AdminStatsLike): string {
   log += row('nonfinal', stats.txNonfinalDay, stats.txNonfinalWeek, stats.txNonfinalMonth, stats.txNonfinalTotal)
   log += row('unfail', stats.txUnfailDay, stats.txUnfailWeek, stats.txUnfailMonth, stats.txUnfailTotal)
   return log
+}
+
+function formatSatoshis(value: unknown): string {
+  const n = typeof value === 'number' ? value : Number(value ?? 0)
+  return Format.satoshis(Number.isFinite(n) ? n : 0)
 }
 
 function parseJson(value?: string): unknown {
@@ -257,6 +279,80 @@ async function queryReqReview(context: RuntimeContext, query: Record<string, unk
       historyPretty: prettyJson(row.history),
       notifyPretty: prettyJson(row.notify)
     }))
+  }
+}
+
+function normalizeReviewMode(value: unknown): 'all' | 'change' {
+  return value === 'change' ? 'change' : 'all'
+}
+
+function getReviewUtxosTask(context: RuntimeContext): { reviewByIdentityKey(identityKey: string, mode: 'all' | 'change'): Promise<string> } {
+  const monitor = context.daemon.setup?.monitor
+  if (!monitor) throw new Error('Monitor is not available.')
+
+  const task = [...monitor._tasks, ...monitor._otherTasks].find(item => item.name === 'ReviewUtxos') as
+    | { reviewByIdentityKey?(identityKey: string, mode: 'all' | 'change'): Promise<string> }
+    | undefined
+
+  if (!task?.reviewByIdentityKey) {
+    throw new Error('ReviewUtxos task is not available in this monitor runtime.')
+  }
+
+  return {
+    reviewByIdentityKey: task.reviewByIdentityKey.bind(task)
+  }
+}
+
+async function queryUsers(context: RuntimeContext, query: Record<string, unknown>) {
+  const storage = await getStorage(context)
+  const search = typeof query.search === 'string' ? query.search.trim() : ''
+  const limit = Math.min(Math.max(asNumber(query.limit, 50), 1), 200)
+
+  const users = await storage.findUsers({
+    partial: {},
+    orderDescending: true,
+    paged: { limit: search ? 200 : limit, offset: 0 }
+  })
+
+  const filtered = search
+    ? users.filter(
+        user => user.identityKey.includes(search) || (user.userId !== undefined && String(user.userId).includes(search))
+      )
+    : users
+
+  return {
+    total: filtered.length,
+    users: filtered.slice(0, limit).map(user => ({
+      userId: user.userId,
+      identityKey: user.identityKey,
+      isActive: user.activeStorage
+    }))
+  }
+}
+
+async function reviewUtxosByIdentityKey(
+  context: RuntimeContext,
+  requestedBy: string,
+  identityKey: string,
+  mode: 'all' | 'change'
+) {
+  const storage = await getStorage(context)
+  const task = getReviewUtxosTask(context)
+  const log = await task.reviewByIdentityKey(identityKey, mode)
+
+  await storage.insertMonitorEvent({
+    created_at: new Date(),
+    updated_at: new Date(),
+    id: 0,
+    event: 'AdminReviewUtxos',
+    details: JSON.stringify({ requestedBy, identityKey, mode, log })
+  })
+
+  return {
+    requestedBy,
+    identityKey,
+    mode,
+    log
   }
 }
 
@@ -418,6 +514,10 @@ export class AdminServer {
       })
     })
 
+    this.app.get('/admin/api/users', async (req: any, res: any) => {
+      res.json(await queryUsers(this.context, req.query || {}))
+    })
+
     this.app.post('/admin/api/tasks/:name/run', async (req: any, res: any) => {
       const monitor = this.context.daemon.setup?.monitor
       const storage = await getStorage(this.context)
@@ -432,6 +532,13 @@ export class AdminServer {
         details: JSON.stringify({ requestedBy: req.auth.identityKey, taskName: name, log })
       })
       res.json({ task: name, log })
+    })
+
+    this.app.post('/admin/api/review-utxos', async (req: any, res: any) => {
+      const identityKey = typeof req.body?.identityKey === 'string' ? req.body.identityKey.trim() : ''
+      if (!identityKey) throw new Error('identityKey is required.')
+      const mode = normalizeReviewMode(req.body?.mode)
+      res.json(await reviewUtxosByIdentityKey(this.context, req.auth.identityKey, identityKey, mode))
     })
 
     this.app.get('/admin/api/proven-tx-reqs/review', async (req: any, res: any) => {

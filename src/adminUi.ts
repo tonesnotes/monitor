@@ -27,21 +27,21 @@ export function renderAdminPage(): string {
       color: var(--ink);
       font-family: var(--sans);
     }
-    main { width: 100%; padding: 24px; }
-    h1, h2, h3 { margin: 0 0 12px; font-weight: 700; }
-    h1 { font-size: 2rem; }
-    h2 { font-size: 1.2rem; }
-    p, label, button, input, select, table { font-size: 0.95rem; }
+    main { width: 100%; padding: 18px; }
+    h1, h2, h3 { margin: 0 0 8px; font-weight: 700; }
+    h1 { font-size: 1.7rem; line-height: 1.1; }
+    h2 { font-size: 1.05rem; }
+    p, label, button, input, select, table { font-size: 0.88rem; }
     .subtle { color: var(--muted); }
     .panel {
       background: rgba(255, 250, 240, 0.92);
       border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 18px;
-      box-shadow: 0 14px 40px rgba(59, 36, 14, 0.08);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 10px 28px rgba(59, 36, 14, 0.08);
       backdrop-filter: blur(12px);
     }
-    .stack { display: grid; gap: 16px; margin-top: 20px; }
+    .stack { display: grid; gap: 12px; margin-top: 14px; }
     details.panel {
       padding: 0;
       overflow: hidden;
@@ -50,8 +50,8 @@ export function renderAdminPage(): string {
     summary {
       list-style: none;
       cursor: pointer;
-      padding: 18px;
-      font-size: 1.3rem;
+      padding: 14px 16px;
+      font-size: 1.1rem;
       font-weight: 700;
       display: flex;
       align-items: center;
@@ -61,27 +61,27 @@ export function renderAdminPage(): string {
     summary::after {
       content: '+';
       color: var(--accent);
-      font-size: 1.4rem;
+      font-size: 1.1rem;
     }
     details[open] summary::after { content: '−'; }
-    .panel-body { padding: 18px; }
+    .panel-body { padding: 14px; }
     .toolbar {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 6px;
       align-items: end;
-      margin: 12px 0;
+      margin: 8px 0;
     }
     .toolbar label {
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      min-width: 120px;
+      gap: 3px;
+      min-width: 108px;
     }
     input, select, button, textarea {
       border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 8px 10px;
+      border-radius: 9px;
+      padding: 6px 8px;
       background: #fffdfa;
       color: var(--ink);
       font-family: inherit;
@@ -89,6 +89,7 @@ export function renderAdminPage(): string {
     button {
       cursor: pointer;
       background: linear-gradient(180deg, #fff7ef, #f2dfca);
+      min-height: 31px;
     }
     button.primary {
       background: linear-gradient(180deg, #c5622b, var(--accent));
@@ -98,14 +99,14 @@ export function renderAdminPage(): string {
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 10px;
+      margin-top: 6px;
       font-family: var(--mono);
-      font-size: 0.8rem;
+      font-size: 0.75rem;
     }
     th, td {
       border-bottom: 1px solid var(--line);
       text-align: left;
-      padding: 8px 6px;
+      padding: 6px 5px;
       vertical-align: top;
     }
     th { color: var(--muted); font-weight: 600; }
@@ -113,34 +114,34 @@ export function renderAdminPage(): string {
       overflow: auto;
       background: #fff;
       border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 10px;
+      border-radius: 10px;
+      padding: 8px;
       font-family: var(--mono);
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       max-height: 320px;
     }
-    details { margin-top: 8px; }
+    details { margin-top: 6px; }
     .event-list {
       display: grid;
-      gap: 10px;
-      margin-top: 12px;
+      gap: 8px;
+      margin-top: 8px;
     }
     .event {
       border-left: 4px solid var(--accent-2);
-      padding-left: 10px;
+      padding-left: 8px;
     }
     .row-actions {
       display: flex;
-      gap: 6px;
+      gap: 4px;
       flex-wrap: wrap;
     }
     .notice {
-      margin-top: 12px;
+      margin-top: 8px;
       color: var(--warn);
     }
     .stats-table {
       font-family: var(--mono);
-      font-size: 0.85rem;
+      font-size: 0.78rem;
     }
     .stats-table th:first-child,
     .stats-table td:first-child {
@@ -154,9 +155,19 @@ export function renderAdminPage(): string {
       border-radius: 999px;
       padding: 4px 10px;
       color: var(--muted);
-      font-size: 0.85rem;
+      font-size: 0.78rem;
       background: rgba(255,255,255,0.55);
     }
+    .compact-select {
+      min-width: 18rem;
+      max-width: 100%;
+    }
+    .wide-input {
+      min-width: min(34rem, 100%);
+      width: min(34rem, 100%);
+      max-width: 100%;
+    }
+    .mono { font-family: var(--mono); }
   </style>
 </head>
 <body>
@@ -201,6 +212,31 @@ export function renderAdminPage(): string {
         </div>
         <div id="tasks"></div>
         <pre id="taskLog"></pre>
+        </div>
+      </details>
+      <details class="panel" open>
+        <summary>User UTXO Review</summary>
+        <div class="panel-body">
+        <div class="toolbar">
+          <label>Identity Key<input id="utxoIdentityKey" class="wide-input mono" type="text" placeholder="enter full identityKey" /></label>
+          <label>Mode
+            <select id="utxoMode">
+              <option value="all">all invalid UTXOs</option>
+              <option value="change">change only</option>
+            </select>
+          </label>
+          <button id="runUtxoReview" class="primary">Run Review</button>
+        </div>
+        <div class="toolbar">
+          <button id="loadUtxoUsers">Load Recent Users</button>
+          <label>Recent Users
+            <select id="utxoUserSelect" class="compact-select mono">
+              <option value="">select a recent user</option>
+            </select>
+          </label>
+          <span id="utxoUserSummary" class="pill"></span>
+        </div>
+        <pre id="utxoReviewLog"></pre>
         </div>
       </details>
       <details class="panel" open>
@@ -294,6 +330,7 @@ export function renderAdminPage(): string {
         ['transactions', stats.transactionsDay, stats.transactionsWeek, stats.transactionsMonth, stats.transactionsTotal],
         ['completed', stats.txCompletedDay, stats.txCompletedWeek, stats.txCompletedMonth, stats.txCompletedTotal],
         ['failed', stats.txFailedDay, stats.txFailedWeek, stats.txFailedMonth, stats.txFailedTotal],
+        ['abandoned', stats.txAbandonedDay, stats.txAbandonedWeek, stats.txAbandonedMonth, stats.txAbandonedTotal],
         ['nosend', stats.txNosendDay, stats.txNosendWeek, stats.txNosendMonth, stats.txNosendTotal],
         ['unproven', stats.txUnprovenDay, stats.txUnprovenWeek, stats.txUnprovenMonth, stats.txUnprovenTotal],
         ['sending', stats.txSendingDay, stats.txSendingWeek, stats.txSendingMonth, stats.txSendingTotal],
@@ -314,6 +351,18 @@ export function renderAdminPage(): string {
           '<td>' + (row[4] ?? '-') + '</td>'
         body.appendChild(tr)
       })
+    }
+
+    function renderUtxoUsers(users, total) {
+      const select = byId('utxoUserSelect')
+      select.innerHTML = '<option value="">select a recent user</option>'
+      users.forEach(user => {
+        const option = document.createElement('option')
+        option.value = user.identityKey
+        option.textContent = (user.userId ?? '?') + ' | ' + user.identityKey
+        select.appendChild(option)
+      })
+      byId('utxoUserSummary').textContent = total ? total + ' user' + (total === 1 ? '' : 's') : 'no users loaded'
     }
 
     async function loadStats() {
@@ -347,6 +396,28 @@ export function renderAdminPage(): string {
         row.appendChild(button)
         container.appendChild(row)
       })
+    }
+
+    async function loadUtxoUsers() {
+      const result = await api('/admin/api/users?limit=50')
+      renderUtxoUsers(result.users || [], result.total || 0)
+    }
+
+    async function runUtxoReview() {
+      const identityKeyValue = byId('utxoIdentityKey').value.trim()
+      const identityKey = identityKeyValue || byId('utxoUserSelect').value
+      if (!identityKey) {
+        throw new Error('Enter or select an identityKey first.')
+      }
+      byId('utxoIdentityKey').value = identityKey
+      const mode = byId('utxoMode').value === 'change' ? 'change' : 'all'
+      const result = await api('/admin/api/review-utxos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identityKey, mode })
+      })
+      byId('utxoReviewLog').textContent = result.log || ''
+      setNotice('Authenticated as ' + result.requestedBy)
     }
 
     async function loadEvents() {
@@ -428,7 +499,7 @@ export function renderAdminPage(): string {
       try {
         await ensureAuthFetch()
         setNotice('Authenticated as ' + identityKey)
-        await Promise.all([loadStats(), loadTasks(), loadEvents(), loadReqs()])
+        await Promise.all([loadStats(), loadTasks(), loadUtxoUsers(), loadEvents(), loadReqs()])
       } catch (error) {
         setNotice(error.message || String(error))
       }
@@ -436,6 +507,12 @@ export function renderAdminPage(): string {
 
     byId('refreshStats').onclick = () => loadStats().catch(error => setNotice(error.message || String(error)))
     byId('refreshTasks').onclick = () => loadTasks().catch(error => setNotice(error.message || String(error)))
+    byId('loadUtxoUsers').onclick = () => loadUtxoUsers().catch(error => setNotice(error.message || String(error)))
+    byId('utxoUserSelect').onchange = event => {
+      const value = event.target && event.target.value ? event.target.value : ''
+      if (value) byId('utxoIdentityKey').value = value
+    }
+    byId('runUtxoReview').onclick = () => runUtxoReview().catch(error => setNotice(error.message || String(error)))
     byId('refreshEvents').onclick = () => loadEvents().catch(error => setNotice(error.message || String(error)))
     byId('refreshReqs').onclick = () => loadReqs().catch(error => setNotice(error.message || String(error)))
 
